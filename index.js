@@ -4,8 +4,8 @@ const fetchJson = fetch(url).then(response => response.json())
 
 fetchJson.then(dataset => {
     let options = {}
-    options.width = 940
-    options.height = 600
+    options.width = 1600
+    options.height = 540
     options.padding = 90
 
     const plotter = new HeatMapPlotter(dataset, options)
