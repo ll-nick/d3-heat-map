@@ -10,12 +10,9 @@ class HeatMapPlotter {
         this.padding = options.padding
 
         // Constants
-        this.dotRadius = 7
-        this.noDopingColor = 'white'
-        this.dopingColor = 'orange'
-        this.legendLabelOffset = 5
-        this.legendRectSize = 18
-        this.legendFontSize = '1rem'
+        this.legendRectHeight = 30
+        this.legendRectWidth = 30
+        this.legendNumRects = 9
         this.yearParser = d3.timeParse('%Y')
         this.monthParser = d3.timeParse('%m')
         this.yearFormat = d3.timeFormat('%Y');
@@ -41,6 +38,14 @@ class HeatMapPlotter {
         return this.dataset.baseTemperature + variance
     }
 
+    #maxTemp() {
+        return d3.max(this.dataset.monthlyVariance, d => this.#temp(d.variance))
+    }
+
+    #minTemp() {
+        return d3.min(this.dataset.monthlyVariance, d => this.#temp(d.variance))
+    }
+
     #createXScale() {
         const years = this.dataset.monthlyVariance.map(d => this.yearParser(d.year))
         this.xScale = d3.scaleTime()
@@ -56,10 +61,8 @@ class HeatMapPlotter {
     }
 
     #createColorScale() {
-        const minTemp = d3.min(this.dataset.monthlyVariance, d => this.#temp(d.variance))
-        const maxTemp = d3.max(this.dataset.monthlyVariance, d => this.#temp(d.variance))
         this.colorScale = d3.scaleSequential(d3.interpolateRdYlBu)
-            .domain([maxTemp, minTemp]);
+            .domain([this.#maxTemp(), this.#minTemp()]);
     }
 
     #createHTMLElements() {
@@ -123,60 +126,51 @@ class HeatMapPlotter {
             .attr('id', 'legend')
             .attr('transform', 'translate(' + this.padding + ',' + this.height * 0.95 + ')');
 
-        // Legend properties
-        const legendWidth = 40;
-        const legendHeight = 40;
-        const numColorTicks = 10; // Number of ticks in the legend
-
-        const minTemp = d3.min(this.dataset.monthlyVariance, d => this.#temp(d.variance))
-        const maxTemp = d3.max(this.dataset.monthlyVariance, d => this.#temp(d.variance))
-        legend.selectAll('rect')
-            .data(d3.range(numColorTicks))
+        // Add colored rects
+        legend.selectAll('.legend-rect')
+            .data(d3.range(this.legendNumRects))
             .enter()
             .append('rect')
-            .attr('x', (d, i) => i * legendWidth)
+            .attr('x', (d, i) => i * this.legendRectWidth)
             .attr('y', 0)
-            .attr('width', legendWidth)
-            .attr('height', legendHeight)
+            .attr('width', this.legendRectWidth)
+            .attr('height', this.legendRectHeight)
             .attr('stroke', 'black')
-            .style('fill', d => this.colorScale(d3.quantile([minTemp, maxTemp], d / (numColorTicks - 1))));
+            .attr('class', 'legend-rect')
+            .style('fill', d => this.colorScale(d3.quantile([this.#minTemp(), this.#maxTemp()], d / (this.legendNumRects - 1))));
 
-        // Create a new axis for the legend
+        // Add legend axis
         const tempScale = d3.scaleLinear()
-            .domain([minTemp, maxTemp])
-            .range([0, legendWidth * numColorTicks]);
+            .domain([this.#minTemp(), this.#maxTemp()])
+            .range([0, this.legendRectWidth * this.legendNumRects]);
         const legendAxis = d3.axisBottom(tempScale)
-            .ticks(numColorTicks)
+            .ticks(this.legendNumRects / 2)
             .tickFormat(d3.format('.2f'))
-            .tickSize(6)
-            .tickSizeOuter(0);
-
-        // Append the axis to the legend group
         legend.append('g')
-            .attr('transform', 'translate(0, ' + legendHeight + ')')
+            .attr('transform', 'translate(0, ' + this.legendRectHeight + ')')
             .attr('id', 'legend-axis')
             .call(legendAxis);
     }
 
     #plotData() {
-        const rectWidth = this.xScale(this.yearParser("2001")) - this.xScale(this.yearParser("2000"))
-        const rectHeight = this.yScale("2") - this.yScale("1")
-        this.svg.selectAll('rect')
+        const rectWidth = this.xScale(this.yearParser('2001')) - this.xScale(this.yearParser('2000'))
+        const rectHeight = this.yScale('2') - this.yScale('1')
+        this.svg.selectAll('.cell')
             .data(this.dataset.monthlyVariance)
             .enter()
             .append('rect')
-            .attr("x", d => this.xScale(this.yearParser(d.year)))
-            .attr("y", d => this.yScale(d.month) - rectHeight / 2)
+            .attr('x', d => this.xScale(this.yearParser(d.year)))
+            .attr('y', d => this.yScale(d.month) - rectHeight / 2)
             // The tests except months to be in [0,11] where the data is in [1,12]
             .attr('data-month', d => d.month - 1)
             .attr('data-year', d => d.year)
             .attr('data-temp', d => this.#temp(d.variance))
-            .attr("width", rectWidth)
-            .attr("height", rectHeight)
+            .attr('width', rectWidth)
+            .attr('height', rectHeight)
             .attr('fill', d => this.colorScale(this.#temp(d.variance)))
             .attr('class', 'cell')
             .on('mouseover', (event, d) => {
-                const tooltipContent = this.yearFormat(d.year) +
+                const tooltipContent = this.yearFormat(this.yearParser(d.year)) +
                     ' - ' +
                     this.monthFormat(this.monthParser(d.month)) +
                     '<br>' +

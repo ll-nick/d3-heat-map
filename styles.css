@@ -37,9 +37,10 @@ svg {
 }
 
 #x-axis,
-#y-axis {
+#y-axis,
+#legend-axis {
     color: var(--font-color);
-    font-size: 0.7rem;
+    font-size: 0.9rem;
 }
 
 #y-axis-label {
